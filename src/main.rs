@@ -3,7 +3,9 @@ use crate::pcr::Pcr;
 use crate::push::Push;
 use lazy_static::lazy_static;
 use log::{error, info, warn};
+use rand::Rng;
 use reqwest::blocking::{Client, ClientBuilder};
+use reqwest::header::{HeaderMap, REFERER};
 use serde_json::Value;
 use std::env;
 use std::thread::sleep;
@@ -15,16 +17,25 @@ mod push;
 
 lazy_static! {
     static ref CLIENT: Client = ClientBuilder::new()
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; WOW64; rv:56.0) Gecko/20100101 Firefox/56.0")
+        .user_agent(USER_AGENT[rand::thread_rng().gen_range(0..6)])
         .cookie_store(true)
         .build()
         .unwrap();
 }
 
+const USER_AGENT:[&str; 6] = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36 cpdaily/9.0.14 wisedu/9.0.14",
+                              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36 cpdaily/9.0.14 wisedu/9.0.14",
+                              "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0 cpdaily/9.0.14 wisedu/9.0.14",
+                              "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0 cpdaily/9.0.14 wisedu/9.0.14",
+                              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36 cpdaily/9.0.14 wisedu/9.0.14", 
+                              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.55 Safari/537.36 cpdaily/9.0.14 wisedu/9.0.14"
+                              ];
+
 const URL_INFO_LIST: &str =
     "http://ehallapp.nju.edu.cn/xgfw/sys/yqfxmrjkdkappnju/apply/getApplyInfoList.do";
 const URL_INFO_APPLY: &str =
     "http://ehallapp.nju.edu.cn/xgfw/sys/yqfxmrjkdkappnju/apply/saveApplyInfos.do";
+const URL_REF_INDEX: &str = "http://ehallapp.nju.edu.cn/xgfw/sys/mrjkdkappnju/index.html";
 
 fn main() {
     match env::var("DISABLE_CLOCK_IN").unwrap().as_str() {
@@ -69,6 +80,9 @@ fn main() {
             }
         };
         let clock_in_info = &value["data"][0];
+        let mut headers = HeaderMap::new();
+        headers.insert(REFERER, URL_REF_INDEX.parse().unwrap());
+
         if clock_in_info["TBZT"] == "0" {
             CLIENT
                 .get(format!(
@@ -78,6 +92,7 @@ fn main() {
                     location,
                     pcr_time
                 ))
+                .headers(headers)
                 .send()
                 .unwrap();
             sleep(Duration::from_secs(1));
